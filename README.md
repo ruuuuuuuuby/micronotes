@@ -16,7 +16,7 @@ Everything runs locally in your browser within a single file—no build process 
 
 You can use the application directly in your browser:
 
-**[Play with MicroNotes Live](https://[your-username].github.io/[your-repo-name]/)**
+**[MicroNotes Website](https://ruuuuuuuuby.github.io/micronotes/)**
 
 To run it locally:
 1. Clone this repository or download the `index.html` file.
