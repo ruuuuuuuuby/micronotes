@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>MicroNotes by Ruby</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;1,9..144,300&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #FAFAFA;
+  --surface: #FFFFFF;
+  --surface2: #F1F5F9;
+  --border: #E2E8F0;
+  --border2: #CBD5E1;
+  --text: #1E293B;
+  --text2: #64748B;
+  --text3: #94A3B8;
+  --accent: #2563EB;
+  --accent-light: #DBEAFE;
+  --accent-hover: #1D4ED8;
+  --success: #10B981;
+  --warn: #F59E0B;
+  --cell-border: #94A3B8;
+  --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.08);
+}
+
+body {
+  font-family: 'DM Mono', monospace;
+  background: var(--bg);
+  color: var(--text);
+  height: 100vh;
+  overflow: hidden;
+  font-size: 13px;
+}
+
+#app { display: flex; flex-direction: column; height: 100vh; }
+
+/* HEADER */
+.header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 20px; height: 48px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0; z-index: 10;
+}
+.logo {
+  display: flex; align-items: center; gap: 8px;
+  font-family: 'Fraunces', serif; font-weight: 600; font-size: 18px;
+  letter-spacing: -0.02em; color: var(--text);
+}
+.logo-dot { width: 8px; height: 8px; background: var(--accent); border-radius: 50%; }
+.header-actions { display: flex; gap: 8px; align-items: center; }
+
+/* BUTTONS */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border2);
+  background: var(--surface); color: var(--text); font-family: inherit;
+  font-size: 12px; cursor: pointer; transition: all 0.12s; font-weight: 500;
+  white-space: nowrap;
+}
+.btn:hover { background: var(--surface2); border-color: var(--text3); }
+.btn:active { transform: scale(0.98); }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.btn-sm { padding: 4px 8px; font-size: 11px; }
+.btn-icon { padding: 5px 7px; }
+
+/* WORKSPACE */
+.workspace { display: flex; flex: 1; overflow: hidden; position: relative; }
+
+/* LEFT PANEL */
+.left-panel {
+  width: 300px; min-width: 260px; max-width: 340px;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  overflow-y: auto; flex-shrink: 0;
+}
+
+.panel-section {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.panel-section.editor-container { padding: 0; flex: 1; display: flex; flex-direction: column; min-height: 250px; }
+
+/* NATIVE COLLAPSIBLE SECTIONS */
+details.panel-section summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+details.panel-section summary::-webkit-details-marker { display: none; }
+details.panel-section summary::after {
+  content: '▼'; font-size: 8px; color: var(--text3); transition: transform 0.2s;
+}
+details.panel-section[open] summary::after { transform: rotate(180deg); }
+
+.section-label {
+  font-size: 10px; font-weight: 500; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--text3);
+}
+
+.grid-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+.control-group { display: flex; flex-direction: column; gap: 4px; }
+.control-label { font-size: 11px; color: var(--text2); }
+.control-input {
+  padding: 5px 8px; border: 1px solid var(--border); border-radius: 5px;
+  font-family: inherit; font-size: 12px; background: var(--bg);
+  color: var(--text); width: 100%; outline: none;
+  transition: border-color 0.12s;
+}
+.control-input:focus { border-color: var(--accent); }
+.control-input[type="range"] {
+  padding: 2px 0; border: none; background: transparent;
+  cursor: pointer; accent-color: var(--accent);
+}
+.range-row { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+.range-val { min-width: 28px; text-align: right; font-size: 11px; color: var(--text2); font-weight: 500; }
+
+/* EDITOR */
+.editor-area { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.editor-toolbar {
+  display: flex; gap: 4px; padding: 8px 16px;
+  border-bottom: 1px solid var(--border); flex-shrink: 0; flex-wrap: wrap;
+}
+.toolbar-btn {
+  padding: 3px 8px; border: 1px solid var(--border); border-radius: 4px;
+  background: var(--bg); font-family: 'Fraunces', serif; font-size: 12px;
+  cursor: pointer; color: var(--text2); transition: all 0.1s;
+}
+.toolbar-btn:hover { background: var(--accent-light); border-color: var(--accent); color: var(--accent); }
+.toolbar-math { font-style: italic; font-family: Georgia, serif; }
+
+.editor-textarea {
+  flex: 1; resize: none; border: none; outline: none;
+  font-family: 'DM Mono', monospace; font-size: 12.5px; line-height: 1.7;
+  padding: 14px 16px; background: var(--bg); color: var(--text); min-height: 0;
+}
+
+/* RIGHT PANEL */
+.right-panel {
+  flex: 1; background: #E8EDF4; overflow: auto;
+  display: flex; flex-direction: column; min-width: 0;
+}
+
+.preview-toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 20px; background: var(--surface);
+  border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.preview-info { font-size: 11px; font-weight: 500; color: var(--text); }
+
+/* CANVAS WRAPPER */
+.canvas-wrapper {
+  flex: 1; overflow: auto; padding: 24px;
+  display: flex; flex-direction: column; align-items: center; gap: 24px;
+}
+
+/* PAGE CONTAINER */
+.page-container {
+  background: var(--surface); position: relative;
+  box-shadow: var(--shadow-md); flex-shrink: 0;
+}
+.page-label {
+  position: absolute; top: -22px; left: 0;
+  font-size: 11px; color: var(--text3); font-weight: 500; letter-spacing: 0.04em;
+}
+.page-label span { color: var(--accent); }
+
+/* GRID */
+.note-grid { display: grid; width: 100%; height: 100%; }
+.note-cell {
+  border: 0.5px solid var(--cell-border);
+  overflow: hidden; position: relative;
+  display: flex; flex-direction: column; padding: 0;
+}
+.note-cell.filled { cursor: pointer; }
+.note-cell.filled:hover { background: var(--accent-light); }
+.hide-grid-lines .note-cell { border-color: transparent !important; }
+
+/* The Sequence Numbers (Printed & Visible) */
+.cell-index {
+  position: absolute; top: 1px; right: 1px;
+  font-size: 6px; color: var(--text); line-height: 1;
+  font-family: 'DM Mono', monospace; font-weight: normal;
+  background: rgba(255, 255, 255, 0.8); padding: 1px 1px; border-radius: 1px;
+}
+.cell-mirror-badge {
+  position: absolute; top: 2px; left: 3px;
+  font-size: 7px; color: var(--accent); line-height: 1;
+  background: var(--accent-light); padding: 1px 3px; border-radius: 2px; font-weight: 500;
+}
+.cell-content {
+  flex: 1; padding: 5px 6px; overflow: hidden;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.cell-text {
+  flex: 1; font-size: var(--cell-font-size, 9px);
+  line-height: 1.4; color: var(--text);
+  font-family: 'Fraunces', serif;
+  word-break: break-word; overflow: hidden; 
+}
+.cell-text .katex { font-size: 0.9em; }
+.cell-text .katex-display { margin: 2px 0; font-size: 0.85em; }
+
+.cell-empty-hint {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 8px; color: var(--text3); font-style: italic;
+}
+
+/* STATS BAR */
+.stats-bar {
+  padding: 8px 20px; background: var(--surface);
+  border-top: 1px solid var(--border);
+  display: flex; gap: 20px; font-size: 11px; color: var(--text2); flex-shrink: 0;
+}
+.stat-item { display: flex; gap: 5px; align-items: center; }
+.stat-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+.stat-dot.success { background: var(--success); }
+
+/* MODAL */
+.cell-edit-overlay {
+  position: fixed; inset: 0; background: rgba(15,23,42,0.5);
+  z-index: 100; display: flex; align-items: center; justify-content: center;
+  backdrop-filter: blur(2px);
+}
+.cell-edit-modal {
+  background: var(--surface); border-radius: 10px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+  width: 480px; max-width: 96vw;
+  overflow: hidden; border: 1px solid var(--border);
+}
+.cell-edit-header {
+  padding: 14px 18px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.cell-edit-title { font-family: 'Fraunces', serif; font-size: 15px; font-weight: 600; }
+.cell-edit-textarea {
+  width: 100%; height: 200px; resize: vertical;
+  border: none; outline: none; padding: 14px 18px;
+  font-family: 'DM Mono', monospace; font-size: 13px; line-height: 1.6;
+  background: var(--bg); color: var(--text);
+}
+.cell-edit-footer {
+  padding: 12px 18px; border-top: 1px solid var(--border);
+  display: flex; justify-content: space-between; align-items: center; gap: 8px;
+}
+.cell-edit-hint { font-size: 10px; color: var(--text3); }
+
+/* MOBILE RESPONSIVENESS */
+#mobile-overlay {
+  display: none; position: absolute; inset: 0;
+  background: rgba(15,23,42,0.5); z-index: 40;
+  backdrop-filter: blur(2px);
+}
+
+@media (max-width: 850px) {
+  .header { padding: 0 10px; }
+  #btn-menu-toggle { display: inline-flex !important; margin-right: 12px; }
+  .header-actions .btn span { display: none; }
+  
+  .left-panel {
+    position: absolute; top: 0; left: -100%; height: 100%;
+    width: 85%; max-width: 320px; z-index: 50;
+    box-shadow: var(--shadow-md); transition: left 0.3s ease;
+  }
+  .left-panel.open { left: 0; }
+  #mobile-overlay.open { display: block; }
+
+  .canvas-wrapper { padding: 12px; }
+  .stats-bar { padding: 8px 10px; gap: 10px; font-size: 10px; overflow-x: auto; white-space: nowrap; }
+}
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+/* --- NATIVE PRINT STYLES --- */
+@media print {
+  @page { margin: 0; size: auto; }
+  
+  /* 1. Hide all UI panels and buttons */
+  .header, .left-panel, .preview-toolbar, .stats-bar, #mobile-overlay, .cell-edit-overlay {
+    display: none !important;
+  }
+  
+  /* 2. Free the document flow (override fixed app heights) */
+  body, html, #app, .workspace, .right-panel {
+    height: auto !important; 
+    width: auto !important;
+    overflow: visible !important;
+    display: block !important;
+    background: white !important;
+    margin: 0 !important; 
+    padding: 0 !important;
+  }
+  
+  /* 3. Strip spacing from the canvas so pages stack flush */
+  .canvas-wrapper {
+    padding: 0 !important;
+    margin: 0 !important;
+    gap: 0 !important;
+    overflow: visible !important;
+    display: block !important;
+  }
+  
+  /* 4. Format the pages for the printer */
+  .page-container {
+    box-shadow: none !important;
+    margin: 0 auto !important;
+    page-break-after: always;
+    break-after: page;
+    /* Scale 72 DPI layout to 96 DPI flawlessly (Supported in modern Firefox 126+ too) */
+    zoom: 1.33333 !important; 
+    transform: none !important; 
+  }
+  
+  /* 5. Hide editor-specific helpers */
+  .page-label, .cell-mirror-badge, .cell-empty-hint { 
+    display: none !important; 
+  }
+  
+  /* 6. Safeguards for strict bounding and text selection */
+  .note-cell { overflow: hidden !important; }
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .katex-mathml { display: none !important; }
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header class="header">
+    <div class="logo">
+      <button class="btn btn-sm btn-icon" id="btn-menu-toggle" style="display:none;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+      </button>
+      <div class="logo-dot"></div>
+      MicroNotes by Ruby
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-primary btn-sm" id="btn-print">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 6 2 18 2 18 9"/>
+          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+          <rect x="6" y="14" width="12" height="8"/>
+        </svg>
+        <span>Print</span>
+      </button>
+    </div>
+  </header>
+
+  <div class="workspace">
+    <div id="mobile-overlay"></div>
+
+    <div class="left-panel">
+      <div class="panel-section" style="display:flex; gap:8px;">
+        <button class="btn btn-sm" id="btn-load-sample" style="flex:1;">Load Sample</button>
+        <button class="btn btn-sm" id="btn-clear-all" style="flex:1;">Clear All</button>
+      </div>
+
+      <details class="panel-section" open>
+        <summary class="section-label">Grid Layout</summary>
+        <div class="grid-controls">
+          <div class="control-group">
+            <label class="control-label">Rows</label>
+            <input type="number" class="control-input" id="ctrl-rows" min="1" max="8" value="3">
+          </div>
+          <div class="control-group">
+            <label class="control-label">Columns</label>
+            <input type="number" class="control-input" id="ctrl-cols" min="1" max="8" value="3">
+          </div>
+        </div>
+        <div style="margin-top:10px">
+          <div class="control-label">Cell Margin (px)</div>
+          <div class="range-row">
+            <input type="range" class="control-input" id="ctrl-margin" min="0" max="12" value="2" step="1">
+            <span class="range-val" id="margin-val">2</span>
+          </div>
+        </div>
+        <div style="margin-top:10px">
+          <div class="control-label">Font Size</div>
+          <div class="range-row">
+            <input type="range" class="control-input" id="ctrl-fontsize" min="6" max="14" value="9" step="1">
+            <span class="range-val" id="fontsize-val">9px</span>
+          </div>
+        </div>
+      </details>
+
+      <details class="panel-section" open>
+        <summary class="section-label">Page Options</summary>
+        <div class="control-group" style="margin-top:10px; margin-bottom:8px">
+          <select class="control-input" id="ctrl-pagesize">
+            <option value="a4">A4 (210×297mm)</option>
+            <option value="letter">Letter (8.5×11in)</option>
+            <option value="a5">A5 (148×210mm)</option>
+          </select>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px; margin-top:6px">
+          <input type="checkbox" id="ctrl-showindex" checked style="accent-color:var(--accent)">
+          <label for="ctrl-showindex" class="control-label" style="cursor:pointer; margin:0">Show Page Numbers</label>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px; margin-top:6px">
+          <input type="checkbox" id="ctrl-showlines" checked style="accent-color:var(--accent)">
+          <label for="ctrl-showlines" class="control-label" style="cursor:pointer; margin:0">Show Borders</label>
+        </div>
+      </details>
+
+      <div class="panel-section editor-container">
+        <div class="editor-area">
+          <div class="editor-toolbar">
+		    <button class="toolbar-btn toolbar-math" id="ins-bold" title="Bold">Bold (**…**)</button>
+			<button class="toolbar-btn toolbar-math" id="ins-break" title="Insert Cell Break">Cell Break (---)</button>
+            <button class="toolbar-btn toolbar-math" id="ins-inline-math" title="Insert Inline Math Equation">Inline Math ($…$)</button>
+            <button class="toolbar-btn toolbar-math" id="ins-display-math"title="Insert Block Math Equation">Block Math ($$…$$)</button>
+          </div>
+          <textarea class="editor-textarea" id="global-editor"
+            placeholder="Type your notes here. They will automatically flow across the grid!
+
+Flow sequence: 
+Front Cell -> Mirrored Back Cell -> Next Front Cell...
+
+Type --- to force a break to the next cell."></textarea>
+        </div>
+      </div>
+    </div>
+
+    <div class="right-panel">
+      <div class="preview-toolbar">
+        <div class="preview-info" id="preview-info">Loading...</div>
+      </div>
+      <div class="canvas-wrapper" id="canvas-wrapper"></div>
+      <div class="stats-bar">
+        <div class="stat-item"><div class="stat-dot success"></div> <span id="stat-filled">0 filled slots</span></div>
+        <div class="stat-item"><div class="stat-dot"></div> <span id="stat-empty">0 empty</span></div>
+        <div class="stat-item" style="margin-left:auto; color:var(--text3)">Click any filled cell to edit</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="cell-edit-overlay" id="cell-modal" style="display:none">
+  <div class="cell-edit-modal">
+    <div class="cell-edit-header">
+      <div class="cell-edit-title" id="modal-title">Edit Section</div>
+      <button class="btn btn-sm btn-icon" id="modal-close">✕</button>
+    </div>
+    <textarea class="cell-edit-textarea" id="modal-textarea"></textarea>
+    <div class="cell-edit-footer">
+      <div class="cell-edit-hint">Ctrl+Enter to save</div>
+      <div style="display:flex; gap:8px">
+        <button class="btn btn-sm btn-primary" id="modal-save">Save changes</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════════
+// MICRONOTES — CONTINUOUS FLOW ENGINE + HTML2CANVAS
+// ════════════════════════════════════════════════════════════════
+
+const state = {
+  text: "",              
+  rows: 3,
+  cols: 3,
+  margin: 2,
+  fontSize: 9,
+  pageSize: 'a4',
+//  showMirror: true,
+  showIndex: true,
+  showLines: true,
+  editingRange: null     
+};
+
+const PAGE_DIMS = {
+  a4:     { w: 595, h: 842 },
+  letter: { w: 612, h: 792 },
+  a5:     { w: 420, h: 595 },
+};
+
+function escapeHtml(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+function decodeHtmlEntities(s) {
+  return s.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+}
+
+// ─── MATH & MARKDOWN RENDERER ────────────────────────────────────
+function renderMath(rawText) {
+  if (!rawText) return "";
+  let html = escapeHtml(rawText);
+
+  // 1. Render Bold Tags First
+  html = html.replace(/\*\*([\s\S]+?)\*\*/g, '<b>$1</b>');
+
+  if (!window.katex) return html.replace(/\n/g, '<br>');
+
+  const placeholders = [];
+
+  // 2. Safely Extract Block Math into Placeholders (Prevents HTML corruption)
+  html = html.replace(/\$\$([\s\S]+?)\$\$/g, (_, expr) => {
+    try {
+      const rendered = katex.renderToString(decodeHtmlEntities(expr), { displayMode: true, throwOnError: false });
+      placeholders.push(rendered);
+      return `__K_PLACEHOLDER_${placeholders.length - 1}__`;
+    } catch (e) { return `<span style="color:var(--warn)">⚠</span>`; }
+  });
+
+  // 3. Safely Extract Inline Math into Placeholders
+  html = html.replace(/\$([^$\n]+?)\$/g, (_, expr) => {
+    try {
+      const rendered = katex.renderToString(decodeHtmlEntities(expr), { displayMode: false, throwOnError: false });
+      placeholders.push(rendered);
+      return `__K_PLACEHOLDER_${placeholders.length - 1}__`;
+    } catch (e) { return `<span style="color:var(--warn)">⚠</span>`; }
+  });
+
+  // 4. Safely replace line breaks ONLY on non-math text
+  html = html.replace(/\n/g, '<br>');
+
+  // 5. Restore Math Renderings 
+  html = html.replace(/__K_PLACEHOLDER_(\d+)__/g, (_, idx) => placeholders[idx]);
+
+  return html;
+}
+
+// ─── PAGINATION ENGINE ───────────────────────────────────────────
+function tokenizeForPagination(text) {
+  if (!text) return [];
+  // Added bold (?:\*\*[\s\S]+?\*\*) so bold phrases flow together without tearing across cells
+  return text.match(/(?:\$\$[\s\S]+?\$\$)|(?:\$[\s\S]+?\$)|(?:\*\*[\s\S]+?\*\*)|(?:\n*---\n*)|(?:\S+)|(?:\s+)/g) || [];
+}
+
+function createMeasureNode(cellW, cellH) {
+  const node = document.createElement('div');
+  node.className = 'note-cell';
+  node.style.width = cellW + 'px';
+  node.style.height = cellH + 'px';
+  node.style.position = 'absolute';
+  node.style.visibility = 'hidden';
+  node.style.pointerEvents = 'none';
+  node.style.left = '-9999px';
+  node.style.top = '0';
+  node.style.setProperty('--cell-font-size', state.fontSize + 'px');
+
+  const content = document.createElement('div');
+  content.className = 'cell-content';
+  const textNode = document.createElement('div');
+  textNode.className = 'cell-text';
+
+  content.appendChild(textNode);
+  node.appendChild(content);
+  document.body.appendChild(node);
+  return { node, textNode };
+}
+
+function binarySearchFit(tokens, startIdx, textNode) {
+  let maxAllowed = tokens.length - startIdx;
+  
+  for (let i = startIdx; i < tokens.length; i++) {
+    if (tokens[i].includes('---')) {
+      maxAllowed = i - startIdx;
+      break;
+    }
+  }
+
+  let min = 0;
+  let max = maxAllowed;
+  let best = 0;
+
+  while (min <= max) {
+    let mid = Math.floor((min + max) / 2);
+    if (mid === 0) { min = mid + 1; continue; }
+    
+    const testText = tokens.slice(startIdx, startIdx + mid).join('');
+    textNode.innerHTML = renderMath(testText);
+
+    if (textNode.scrollHeight <= textNode.clientHeight + 1) {
+      best = mid;
+      min = mid + 1;
+    } else {
+      max = mid - 1;
+    }
+  }
+
+  if (best === 0 && maxAllowed > 0) return 1; 
+  return best;
+}
+
+// ─── RENDER CYCLE ────────────────────────────────────────────────
+let renderTimer;
+function requestRender() {
+  clearTimeout(renderTimer);
+  renderTimer = setTimeout(renderCanvas, 200); 
+}
+
+function renderCanvas() {
+  const wrapper = document.getElementById('canvas-wrapper');
+  
+  if(state.showLines) {
+    wrapper.classList.remove('hide-grid-lines');
+  } else {
+    wrapper.classList.add('hide-grid-lines');
+  }
+
+  const { w, h } = PAGE_DIMS[state.pageSize];
+
+  const cellW = (w - state.margin * 2 * state.cols) / state.cols;
+  const cellH = (h - state.margin * 2 * state.rows) / state.rows;
+  const { node: measureNode, textNode } = createMeasureNode(cellW, cellH);
+
+  const tokens = tokenizeForPagination(state.text);
+  
+  let tokenIdx = 0;
+  let charOffset = 0;
+  let sheetIndex = 0;
+  let totalFilled = 0;
+  const totalSlots = state.rows * state.cols;
+  let globalFlowSequence = 1;
+
+  wrapper.innerHTML = ''; 
+
+  while (tokenIdx < tokens.length || sheetIndex === 0) {
+    const frontPageNum = (sheetIndex * 2) + 1;
+    const backPageNum = (sheetIndex * 2) + 2;
+
+    const frontPage = createPageContainer(w, h, `Page ${frontPageNum} — <span>Front</span>`);
+    const backPage = createPageContainer(w, h, `Page ${backPageNum} — <span>Back (Mirrored)</span>`);
+    
+    const frontGrid = createGridContainer();
+    const backGrid = createGridContainer();
+
+    const frontDomCells = new Array(totalSlots);
+    const backDomCells = new Array(totalSlots);
+
+    for (let slot = 0; slot < totalSlots; slot++) {
+      const r = Math.floor(slot / state.cols);
+      const c = slot % state.cols;
+      const mirC = state.cols - 1 - c;
+      const backLinearIdx = r * state.cols + mirC;
+
+      // --- Fill Front Cell ---
+      let maxFront = tokenIdx < tokens.length ? binarySearchFit(tokens, tokenIdx, textNode) : 0;
+      let frontTokens = tokens.slice(tokenIdx, tokenIdx + maxFront);
+      let frontStr = frontTokens.join('');
+      let fStart = charOffset;
+      let fEnd = charOffset + frontStr.length;
+      
+      frontDomCells[slot] = createCellDOM(frontStr, fStart, fEnd, true, r, c, globalFlowSequence++);
+      if (frontStr.trim()) totalFilled++;
+      
+      tokenIdx += maxFront;
+      charOffset += frontStr.length;
+
+      if (tokenIdx < tokens.length && tokens[tokenIdx].includes('---')) {
+        charOffset += tokens[tokenIdx].length;
+        tokenIdx++; 
+      }
+
+      // --- Fill Back Cell ---
+      let maxBack = tokenIdx < tokens.length ? binarySearchFit(tokens, tokenIdx, textNode) : 0;
+      let backTokens = tokens.slice(tokenIdx, tokenIdx + maxBack);
+      let backStr = backTokens.join('');
+      let bStart = charOffset;
+      let bEnd = charOffset + backStr.length;
+
+      backDomCells[backLinearIdx] = createCellDOM(backStr, bStart, bEnd, false, r, mirC, globalFlowSequence++);
+      if (backStr.trim()) totalFilled++;
+      
+      tokenIdx += maxBack;
+      charOffset += backStr.length;
+
+      if (tokenIdx < tokens.length && tokens[tokenIdx].includes('---')) {
+        charOffset += tokens[tokenIdx].length;
+        tokenIdx++; 
+      }
+    }
+
+    frontDomCells.forEach(el => frontGrid.appendChild(el));
+    backDomCells.forEach(el => backGrid.appendChild(el));
+    frontPage.appendChild(frontGrid);
+    backPage.appendChild(backGrid);
+    
+    wrapper.appendChild(frontPage);
+    wrapper.appendChild(backPage);
+
+    sheetIndex++;
+    if (sheetIndex > 50) break; // Hard safety net
+  }
+
+  document.body.removeChild(measureNode);
+
+  const totalGeneratedPages = sheetIndex * 2;
+  document.getElementById('preview-info').textContent = `${totalGeneratedPages} Pages · ${state.pageSize.toUpperCase()}`;
+  document.getElementById('stat-filled').textContent = `${totalFilled} filled slots`;
+  document.getElementById('stat-empty').textContent = `${(sheetIndex * totalSlots * 2) - totalFilled} empty`;
+}
+
+// ─── DOM HELPERS ─────────────────────────────────────────────────
+function createPageContainer(w, h, labelHtml) {
+  const c = document.createElement('div');
+  c.className = 'page-container';
+  c.style.width = w + 'px';
+  c.style.height = h + 'px';
+  const l = document.createElement('div');
+  l.className = 'page-label';
+  l.innerHTML = labelHtml;
+  c.appendChild(l);
+  return c;
+}
+
+function createGridContainer() {
+  const g = document.createElement('div');
+  g.className = 'note-grid';
+  g.style.padding = state.margin + 'px';
+  g.style.gridTemplateRows = `repeat(${state.rows}, 1fr)`;
+  g.style.gridTemplateColumns = `repeat(${state.cols}, 1fr)`;
+  g.style.gap = state.margin + 'px';
+  return g;
+}
+
+function createCellDOM(text, startIdx, endIdx, isFront, r, c, sequenceNumber) {
+  const cell = document.createElement('div');
+  cell.className = 'note-cell';
+  cell.style.setProperty('--cell-font-size', state.fontSize + 'px');
+  
+  if (text.trim()) {
+    cell.classList.add('filled');
+    cell.dataset.start = startIdx;
+    cell.dataset.end = endIdx;
+    cell.addEventListener('click', () => openCellModal(text, startIdx, endIdx, isFront, r, c));
+  }
+
+  if (state.showIndex) {
+    const idx = document.createElement('div');
+    idx.className = 'cell-index';
+    idx.textContent = sequenceNumber; 
+    cell.appendChild(idx);
+  }
+
+  const content = document.createElement('div');
+  content.className = 'cell-content';
+
+  if (text.trim()) {
+    const textEl = document.createElement('div');
+    textEl.className = 'cell-text';
+    textEl.innerHTML = renderMath(text);
+    content.appendChild(textEl);
+  } else {
+    const hint = document.createElement('div');
+    hint.className = 'cell-empty-hint';
+    hint.textContent = isFront ? '+' : '(back)';
+    content.appendChild(hint);
+  }
+
+  cell.appendChild(content);
+  return cell;
+}
+
+// ─── MODAL CONTROLS ──────────────────────────────────────────────
+function openCellModal(text, startIdx, endIdx, isFront, r, c) {
+  state.editingRange = { start: startIdx, end: endIdx };
+  document.getElementById('modal-title').textContent = isFront ? `Edit Front (R${r+1} C${c+1})` : `Edit Back (R${r+1} C${c+1})`;
+  document.getElementById('modal-textarea').value = text;
+  document.getElementById('cell-modal').style.display = 'flex';
+  document.getElementById('modal-textarea').focus();
+}
+
+function closeCellModal() {
+  document.getElementById('cell-modal').style.display = 'none';
+  state.editingRange = null;
+}
+
+function saveCellModal() {
+  if (!state.editingRange) return;
+  const newText = document.getElementById('modal-textarea').value;
+  state.text = state.text.slice(0, state.editingRange.start) + newText + state.text.slice(state.editingRange.end);
+  document.getElementById('global-editor').value = state.text;
+  
+  closeCellModal();
+  renderCanvas();
+}
+
+function insertAtCursor(el, before, after, placeholder) {
+  const start = el.selectionStart;
+  const end   = el.selectionEnd;
+  const selected = el.value.substring(start, end) || placeholder;
+  el.value = el.value.substring(0, start) + before + selected + after + el.value.substring(end);
+  el.focus();
+  el.selectionStart = start + before.length;
+  el.selectionEnd   = start + before.length + selected.length;
+  el.dispatchEvent(new Event('input'));
+}
+
+const SAMPLE_DATA_FLOW = `**Newton's 2nd Law**
+
+$F = ma$
+
+Force equals mass times acceleration.
+---
+**Quadratic Formula**
+
+$$x = \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}$$
+
+Solves $ax^2+bx+c=0$
+---
+**Euler's Identity**
+
+$$e^{i\\pi} + 1 = 0$$
+
+Links 5 fundamental constants.
+---
+**Pythagorean Theorem**
+
+$a^2 + b^2 = c^2$
+
+Right triangle side relationship.
+---
+**Mass-Energy Equivalence**
+
+$E = mc^2$
+
+Mass and energy are interchangeable. Because this sentence is extremely long, it perfectly demonstrates the continuous document engine!`;
+
+// ─── EVENT WIRING ────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+
+  const btnMenuToggle = document.getElementById('btn-menu-toggle');
+  const leftPanel = document.querySelector('.left-panel');
+  const overlay = document.getElementById('mobile-overlay');
+
+  btnMenuToggle.addEventListener('click', () => {
+    leftPanel.classList.toggle('open');
+    overlay.classList.toggle('open');
+  });
+
+  overlay.addEventListener('click', () => {
+    leftPanel.classList.remove('open');
+    overlay.classList.remove('open');
+  });
+
+  ['rows', 'cols', 'margin', 'fontsize'].forEach(id => {
+    document.getElementById(`ctrl-${id}`).addEventListener('input', e => {
+      const v = parseInt(e.target.value);
+      if(id === 'rows') state.rows = Math.max(1, v);
+      if(id === 'cols') state.cols = Math.max(1, v);
+      if(id === 'margin') { state.margin = v; document.getElementById('margin-val').textContent = v; }
+      if(id === 'fontsize') { state.fontSize = v; document.getElementById('fontsize-val').textContent = v + 'px'; }
+      requestRender();
+    });
+  });
+
+  document.getElementById('ctrl-pagesize').addEventListener('change', e => { state.pageSize = e.target.value; requestRender(); });
+  document.getElementById('ctrl-showindex').addEventListener('change', e => { state.showIndex = e.target.checked; requestRender(); });
+  document.getElementById('ctrl-showlines').addEventListener('change', e => { state.showLines = e.target.checked; requestRender(); });
+
+  const ge = document.getElementById('global-editor');
+  ge.addEventListener('input', () => {
+    state.text = ge.value;
+    requestRender();
+  });
+
+  document.getElementById('ins-inline-math').addEventListener('click', () => insertAtCursor(ge, '$', '$', 'E=mc^2'));
+  document.getElementById('ins-display-math').addEventListener('click', () => insertAtCursor(ge, '\n$$', '$$\n', '\\frac{a}{b}'));
+  document.getElementById('ins-bold').addEventListener('click', () => insertAtCursor(ge, '**', '**', 'bold text'));
+  document.getElementById('ins-break').addEventListener('click', () => insertAtCursor(ge, '\n---\n', '', ''));
+
+  document.getElementById('modal-close').addEventListener('click', closeCellModal);
+  document.getElementById('modal-save').addEventListener('click', saveCellModal);
+  document.getElementById('cell-modal').addEventListener('click', e => {
+    if (e.target === document.getElementById('cell-modal')) closeCellModal();
+  });
+  document.getElementById('modal-textarea').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && e.ctrlKey) saveCellModal();
+    if (e.key === 'Escape') closeCellModal();
+  });
+
+  // ─── PRINT ────────────────────────────────────────────────────────
+  document.getElementById('btn-print').addEventListener('click', () => {
+    window.print();
+  });
+
+  document.getElementById('btn-load-sample').addEventListener('click', () => {
+    state.text = SAMPLE_DATA_FLOW;
+    ge.value = state.text;
+    state.rows = 3; state.cols = 3;
+    document.getElementById('ctrl-rows').value = 3;
+    document.getElementById('ctrl-cols').value = 3;
+    requestRender();
+    
+    if(window.innerWidth <= 850) {
+       leftPanel.classList.remove('open');
+       overlay.classList.remove('open');
+    }
+  });
+
+  document.getElementById('btn-clear-all').addEventListener('click', () => {
+    if (confirm('Clear all content?')) {
+      state.text = '';
+      ge.value = '';
+      requestRender();
+      
+      if(window.innerWidth <= 850) {
+         leftPanel.classList.remove('open');
+         overlay.classList.remove('open');
+      }
+    }
+  });
+
+  state.text = SAMPLE_DATA_FLOW;
+  ge.value = state.text;
+  renderCanvas();
+});
+</script>
+</body>
+</html>
